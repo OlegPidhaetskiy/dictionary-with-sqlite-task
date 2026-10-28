@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { createSelector } from "@reduxjs/toolkit";
 import { INITIAL_FORGETTING_SPAN } from "../constants";
+import * as dbUtils from "./dbUtils";
 
 const initialState = {
   words: [],
@@ -26,6 +27,7 @@ const wordsLearningSlice = createSlice({
         milisecondsNow + wordInfoToUpdate.forgettingSpan
       ).getTime();
       wordInfoToUpdate.status = 2;
+      dbUtils.updateWord({ ...wordInfoToUpdate });
     },
     addWord(state, action) {
       if (state.words.find((el) => el.word === action.payload.word)) return;
@@ -38,6 +40,7 @@ const wordsLearningSlice = createSlice({
       wordData.forgettingSpan = INITIAL_FORGETTING_SPAN;
       wordData.status = 0;
       state.words.push(wordData);
+      dbUtils.addWord({ ...wordData });
     },
     updateWord(state, action) {
       const wordIndexToUpdate = state.words.findIndex(
@@ -47,13 +50,16 @@ const wordsLearningSlice = createSlice({
         ...state.words[wordIndexToUpdate],
         ...action.payload,
       };
+      dbUtils.updateWord({ ...state.words[wordIndexToUpdate] });
     },
     removeWord(state, action) {
       state.words = state.words.filter((item) => item.word != action.payload);
+      dbUtils.deleteWord(action.payload);
     },
     updateStatuses(state) {
       const milisecondsNow = new Date().getTime();
       for (const wordInfo of state.words) {
+        const previousStatus = wordInfo.status;
         if (wordInfo.dateTotallyForgets <= milisecondsNow) {
           wordInfo.status = 0;
         } else if (
@@ -61,6 +67,9 @@ const wordsLearningSlice = createSlice({
           wordInfo.dateTotallyForgets > milisecondsNow
         ) {
           wordInfo.status = 1;
+        }
+        if (wordInfo.status !== previousStatus) {
+          dbUtils.updateWord({ ...wordInfo });
         }
       }
     },

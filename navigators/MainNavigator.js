@@ -13,6 +13,7 @@ import { StatusBar } from "react-native";
 import { wordsLearningActions } from "../store/wordsLearningSlice";
 import { themeActions } from "../store/themeSlice";
 import { REFRESH_STATUSES_SPAN } from "../constants";
+import * as dbUtils from "../store/dbUtils";
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,30 @@ function MainNavigator() {
   const isDark = useSelector((state) => state.theme.isDark);
 
   const dispatch = useDispatch();
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+    async function loadSavedData() {
+      try {
+        await dbUtils.init();
+        const [words, isDarkSaved] = await Promise.all([
+          dbUtils.getWords(),
+          dbUtils.getTheme(),
+        ]);
+        if (!isActive) return;
+        dispatch(wordsLearningActions.setInitial(words ?? []));
+        dispatch(themeActions.setInitial(isDarkSaved ?? true));
+      } catch (error) {
+        console.warn("Failed to load saved data", error);
+      }
+      if (isActive) setIsLoaded(true);
+    }
+    loadSavedData();
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(
@@ -29,6 +54,8 @@ function MainNavigator() {
     );
     return () => clearInterval(interval);
   }, []);
+
+  if (!isLoaded) return null;
 
   return (
     <>
